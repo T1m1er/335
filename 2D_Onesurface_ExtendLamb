@@ -98,3 +98,5 @@ end
 pl=[-flipud(pr(:,1)),zeros(i,1),flipud(pr(:,3))];%镜像pr
 P=[pl;P0;pr];
 plot(P(:,1),P(:,3),'-')
+axis equal
+grid on
