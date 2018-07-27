@@ -1,0 +1,102 @@
+clc;
+clear;
+close all;
+%-------------------------   Initial parameters
+%-------------------------   设定初始二维朗伯扩展光源（d,tMax,tMin）以及出射光强均匀分布(K,bMax,bMin)
+d=1;n1=1.59015;n2=1;
+tMax=60*pi/180;tmin=-tMax;
+bMax=45*pi/180;bmin=-bMax;
+z0=3;
+s1=[-d/2,0,0];s2=[d/2,0,0];
+
+%------------------------Step1 initial curve
+%------------------------计算出射光强分布的K值==》初始曲面的初始点==》初始面
+k=n1*d*sin(tMax)/bMax;      %能量守恒定律
+% digits(5);----------------%控制精度函数
+% k=vpa(k);
+x0=k/2;
+p0=[x0,0,z0];%initial point
+
+O_init=[0,0,1];
+I_init=p0-s2;
+I_init=I_init/norm(I_init);
+pN=n2*O_init-n1*I_init;    %Snell's Law:A'=A+pN
+y_d=-pN(1)./pN(3);
+a=y_d/2/p0(1);
+b=p0(3)-a*(p0(1)).^2;      %y=a*x^2+b
+
+%------------------------Step1.2 initial curve parameters
+%------------------------设定初始面离散点，计算离散点各项参数：法矢、切矢
+N=100;
+px=linspace(-x0,x0,N)';
+pz=zeros(N,1);
+P0=zeros(N,3);
+n=zeros(N,3);
+for i=1:N
+    pz(i)=a*(px(i).^2)+b;
+    P0(i,:)=[px(i),0,pz(i)];
+    kt=2*a.*px(i);
+    if px(i)==0
+        kn=Inf;
+        nx=0;
+        nz=1;
+    else
+        kn=-1/kt;
+        nx=(-kt/abs(kt))/(sqrt(1+kn^2));
+        nz=kn*nx;
+    end
+    n(i,:)=[nx,0,nz]/norm([nx,0,nz]);
+end
+
+
+%-------------------------Step2 rest curve
+%-------------------------根据微分原理和snell定律逐点计算剩余曲面
+P(1:N,:)=P0;
+Nl(1:N,:)=n;
+bt=0;
+i=1;
+Os1(1,:)=[0,0,1];
+pr(1,:)=P0(end,:);
+kr=kt(end);
+while bt<=bMax            %用while语句运行迭代部分，保证光线出射角度小于bMax
+    i=i+1;
+    P1=P(i,:);
+    N1=Nl(i,:);
+    Is1=(P1-s1)/norm(P1-s1);
+    cth=abs(dot(Is1,N1));
+    J=sqrt(n2^2-n1^2+n1^2*(cth^2))-n1*cth;
+    Os1=(n1.*Is1+J.*N1)/n2;
+    bt=atan(Os1(1)/Os1(3));
+%     digits(5);----------%控制精度
+%     bt(i)=vpa(bt(i));
+%-------------------------计算下一点Pi(点Pi-1的切线与出射光束边界光线的交点)    
+    dl=k;
+    a1=1./tan(bt);
+    b1=-1;
+    c1=-P(i,1).*a1+P(i,3);
+    c2=c1-(dl./sin(bt));
+    pr(i,1)=(pr(i-1,3)-c2-kr.*pr(i-1,1))/(a1-kr);
+    pr(i,3)=a1.*pr(i,1)+c2;
+    prx=pr(i,1);prz=pr(i,3);
+    P(N+i-1,:)=[prx,0,prz];
+    
+    Is2=pr(i,:)-s2;
+    Is2=Is2/norm(Is2);
+    ts=atan(Is2(1)./Is2(3));
+%     ts=vpa(ts);
+    Os2=Os1;
+    pnr=n2*Os2-n1*Is2;
+    pnr=pnr/(-norm(pnr));
+    kr=-pnr(1)./pnr(3);
+    Nl(N+i-1,:)=pnr;
+    
+    if  ts>tMax           %保证扩展光源的各点光源光线出射角度小于tMax
+        break;
+    end
+end
+
+pl=[-flipud(pr(:,1)),zeros(i,1),flipud(pr(:,3))];%镜像pr
+P=[pl;P0;pr];
+plot(P(:,1),P(:,3),'-')
+axis equal
+grid on
